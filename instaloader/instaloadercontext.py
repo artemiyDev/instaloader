@@ -27,7 +27,7 @@ def copy_session(session: requests.Session, request_timeout: Optional[float] = N
     new.headers = session.headers.copy()
     # Override default timeout behavior.
     # Need to silence mypy bug for this. See: https://github.com/python/mypy/issues/2427
-    new.request = partial(new.request, timeout=request_timeout) # type: ignore
+    new.request = partial(new.request, timeout=request_timeout)  # type: ignore
     return new
 
 
@@ -55,11 +55,11 @@ class InstaloaderContext:
                  max_connection_attempts: int = 3, request_timeout: float = 300.0,
                  rate_controller: Optional[Callable[["InstaloaderContext"], "RateController"]] = None,
                  fatal_status_codes: Optional[List[int]] = None,
-                 iphone_support: bool = True):
-
+                 iphone_support: bool = True, proxy: str = None):
+        self.proxy = proxy
         self.user_agent = user_agent if user_agent is not None else default_user_agent()
         self.request_timeout = request_timeout
-        self._session = self.get_anonymous_session()
+        self._session = self.get_anonymous_session(proxy)
         self.username = None
         self.sleep = sleep
         self.quiet = quiet
@@ -70,7 +70,7 @@ class InstaloaderContext:
         self.iphone_support = iphone_support
 
         # error log, filled with error() and printed at the end of Instaloader.main()
-        self.error_log = []                      # type: List[str]
+        self.error_log = []  # type: List[str]
 
         self._rate_controller = rate_controller(self) if rate_controller is not None else RateController(self)
 
@@ -81,13 +81,13 @@ class InstaloaderContext:
         self.fatal_status_codes = fatal_status_codes or []
 
         # Cache profile from id (mapping from id to Profile)
-        self.profile_id_cache = dict()           # type: Dict[int, Any]
+        self.profile_id_cache = dict()  # type: Dict[int, Any]
 
     @contextmanager
     def anonymous_copy(self):
         session = self._session
         username = self.username
-        self._session = self.get_anonymous_session()
+        self._session = self.get_anonymous_session(self.proxy)
         self.username = None
         try:
             yield self
@@ -158,31 +158,34 @@ class InstaloaderContext:
             del header['X-Requested-With']
         return header
 
-    def get_anonymous_session(self) -> requests.Session:
+    def get_anonymous_session(self, proxy=None) -> requests.Session:
         """Returns our default anonymous requests.Session object."""
         session = requests.Session()
         session.cookies.update({'sessionid': '', 'mid': '', 'ig_pr': '1',
                                 'ig_vw': '1920', 'csrftoken': '',
                                 's_network': '', 'ds_user_id': ''})
+        if proxy:
+            session.proxies.update(proxy)
         session.headers.update(self._default_http_header(empty_session_only=True))
         # Override default timeout behavior.
         # Need to silence mypy bug for this. See: https://github.com/python/mypy/issues/2427
-        session.request = partial(session.request, timeout=self.request_timeout) # type: ignore
+        session.request = partial(session.request, timeout=self.request_timeout)  # type: ignore
         return session
 
     def save_session_to_file(self, sessionfile):
         """Not meant to be used directly, use :meth:`Instaloader.save_session_to_file`."""
         pickle.dump(requests.utils.dict_from_cookiejar(self._session.cookies), sessionfile)
 
-    def load_session_from_file(self, username, sessionfile):
+    def load_session_from_file(self, username, sessionfile, proxy):
         """Not meant to be used directly, use :meth:`Instaloader.load_session_from_file`."""
         session = requests.Session()
         session.cookies = requests.utils.cookiejar_from_dict(pickle.load(sessionfile))
         session.headers.update(self._default_http_header())
         session.headers.update({'X-CSRFToken': session.cookies.get_dict()['csrftoken']})
+        session.proxies.update({'https': proxy})
         # Override default timeout behavior.
         # Need to silence mypy bug for this. See: https://github.com/python/mypy/issues/2427
-        session.request = partial(session.request, timeout=self.request_timeout) # type: ignore
+        session.request = partial(session.request, timeout=self.request_timeout)  # type: ignore
         self._session = session
         self.username = username
 
@@ -191,7 +194,7 @@ class InstaloaderContext:
         data = self.graphql_query("d6f4427fbe92d846298cf93df0b937d3", {})
         return data["data"]["user"]["username"] if data["data"]["user"] is not None else None
 
-    def login(self, user, passwd):
+    def login(self, user, passwd, proxy):
         """Not meant to be used directly, use :meth:`Instaloader.login`.
 
         :raises InvalidArgumentException: If the provided username does not exist.
@@ -204,13 +207,15 @@ class InstaloaderContext:
         # pylint:disable=protected-access
         http.client._MAXHEADERS = 200
         session = requests.Session()
+        if proxy:
+            session.proxies.update({'https': proxy})
         session.cookies.update({'sessionid': '', 'mid': '', 'ig_pr': '1',
                                 'ig_vw': '1920', 'ig_cb': '1', 'csrftoken': '',
                                 's_network': '', 'ds_user_id': ''})
         session.headers.update(self._default_http_header())
         # Override default timeout behavior.
         # Need to silence mypy bug for this. See: https://github.com/python/mypy/issues/2427
-        session.request = partial(session.request, timeout=self.request_timeout) # type: ignore
+        session.request = partial(session.request, timeout=self.request_timeout)  # type: ignore
         csrf_json = self.get_json('accounts/login/', {}, session=session)
         csrf_token = csrf_json['config']['csrf_token']
         session.headers.update({'X-CSRFToken': csrf_token})
@@ -420,7 +425,7 @@ class InstaloaderContext:
             variables_json = json.dumps(variables, separators=(',', ':'))
 
             if rhx_gis:
-                #self.log("rhx_gis {} query_hash {}".format(rhx_gis, query_hash))
+                # self.log("rhx_gis {} query_hash {}".format(rhx_gis, query_hash))
                 values = "{}:{}".format(rhx_gis, variables_json)
                 x_instagram_gis = hashlib.md5(values.encode()).hexdigest()
                 tmpsession.headers['x-instagram-gis'] = x_instagram_gis
