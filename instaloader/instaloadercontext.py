@@ -381,25 +381,7 @@ class InstaloaderContext:
                     raise ConnectionException("Returned \"{}\" status.".format(resp_json['status']))
             return resp_json
         except (ConnectionException, json.decoder.JSONDecodeError, requests.exceptions.RequestException) as err:
-            error_string = "JSON Query to {}: {}".format(path, err)
-            if _attempt == self.max_connection_attempts:
-                if isinstance(err, QueryReturnedNotFoundException):
-                    raise QueryReturnedNotFoundException(error_string) from err
-                else:
-                    raise ConnectionException(error_string) from err
-            self.error(error_string + " [retrying; skip with ^C]", repeat_at_end=False)
-            try:
-                if isinstance(err, TooManyRequestsException):
-                    if is_graphql_query:
-                        self._rate_controller.handle_429(params['query_hash'])
-                    if is_iphone_query:
-                        self._rate_controller.handle_429('iphone')
-                    if is_other_query:
-                        self._rate_controller.handle_429('other')
-                return self.get_json(path=path, params=params, host=host, session=sess, _attempt=_attempt + 1)
-            except KeyboardInterrupt:
-                self.error("[skipped by user]", repeat_at_end=False)
-                raise ConnectionException(error_string) from err
+            raise TooManyRequestsException("429 Too Many Requests")
 
     def graphql_query(self, query_hash: str, variables: Dict[str, Any],
                       referer: Optional[str] = None, rhx_gis: Optional[str] = None) -> Dict[str, Any]:
