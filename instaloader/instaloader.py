@@ -232,11 +232,12 @@ class Instaloader:
                  fatal_status_codes: Optional[List[int]] = None,
                  iphone_support: bool = True,
                  title_pattern: Optional[str] = None,
-                 sanitize_paths: bool = False):
+                 sanitize_paths: bool = False,
+                 proxy = None):
 
         self.context = InstaloaderContext(sleep, quiet, user_agent, max_connection_attempts,
                                           request_timeout, rate_controller, fatal_status_codes,
-                                          iphone_support)
+                                          iphone_support,proxy)
 
         # configuration parameters
         self.dirname_pattern = dirname_pattern or "{target}"
@@ -604,7 +605,7 @@ class Instaloader:
             self.context.save_session_to_file(sessionfile)
             self.context.log("Saved session to %s." % filename)
 
-    def load_session_from_file(self, username: str, filename: Optional[str] = None) -> None:
+    def load_session_from_file(self, username: str, filename: Optional[str] = None, proxy=None) -> None:
         """Internally stores :class:`requests.Session` object loaded from file.
 
         If filename is None, the file with the default session path is loaded.
@@ -616,14 +617,14 @@ class Instaloader:
             if not os.path.exists(filename):
                 filename = get_legacy_session_filename(username)
         with open(filename, 'rb') as sessionfile:
-            self.context.load_session_from_file(username, sessionfile)
+            self.context.load_session_from_file(username, sessionfile, proxy)
             self.context.log("Loaded session from %s." % filename)
 
     def test_login(self) -> Optional[str]:
         """Returns the Instagram username to which given :class:`requests.Session` object belongs, or None."""
         return self.context.test_login()
 
-    def login(self, user: str, passwd: str) -> None:
+    def login(self, user: str, passwd: str, proxy: str = None) -> None:
         """Log in to instagram with given username and password and internally store session object.
 
         :raises InvalidArgumentException: If the provided username does not exist.
@@ -631,7 +632,7 @@ class Instaloader:
         :raises ConnectionException: If connection to Instagram failed.
         :raises TwoFactorAuthRequiredException: First step of 2FA login done, now call
            :meth:`Instaloader.two_factor_login`."""
-        self.context.login(user, passwd)
+        self.context.login(user, passwd, proxy)
 
     def two_factor_login(self, two_factor_code) -> None:
         """Second step of login if 2FA is enabled.
