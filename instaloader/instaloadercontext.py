@@ -300,7 +300,7 @@ class InstaloaderContext:
     def do_sleep(self):
         """Sleep a short time if self.sleep is set. Called before each request to instagram.com."""
         if self.sleep:
-            time.sleep(min(random.expovariate(0.6), 15.0))
+            pass
 
     def get_json(self, path: str, params: Dict[str, Any], host: str = 'www.instagram.com',
                  session: Optional[requests.Session] = None, _attempt=1) -> Dict[str, Any]:
@@ -320,13 +320,6 @@ class InstaloaderContext:
         is_other_query = not is_graphql_query and host == "www.instagram.com"
         sess = session if session else self._session
         try:
-            self.do_sleep()
-            if is_graphql_query:
-                self._rate_controller.wait_before_query(params['query_hash'])
-            if is_iphone_query:
-                self._rate_controller.wait_before_query('iphone')
-            if is_other_query:
-                self._rate_controller.wait_before_query('other')
             resp = sess.get('https://{0}/{1}'.format(host, path), params=params, allow_redirects=False)
             if resp.status_code in self.fatal_status_codes:
                 redirect = " redirect to {}".format(resp.headers['location']) if 'location' in resp.headers else ""
