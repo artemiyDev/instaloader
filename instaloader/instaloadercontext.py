@@ -394,6 +394,7 @@ class InstaloaderContext:
             tmpsession.headers['authority'] = 'www.instagram.com'
             tmpsession.headers['scheme'] = 'https'
             tmpsession.headers['accept'] = '*/*'
+            tmpsession.proxies.update(self.proxy)
             if referer is not None:
                 tmpsession.headers['referer'] = urllib.parse.quote(referer)
 
