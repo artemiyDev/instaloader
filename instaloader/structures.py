@@ -195,7 +195,7 @@ class Post:
             )
             self._full_metadata_dict = pic_json['data']['shortcode_media']
             if self._full_metadata_dict is None:
-                raise BadResponseException("Fetching Post metadata failed.")
+                raise BadResponseExceptionMeta()
             if self.shortcode != self._full_metadata_dict['shortcode']:
                 self._node.update(self._full_metadata_dict)
                 raise PostChangedException
