@@ -44,6 +44,9 @@ class InvalidArgumentException(InstaloaderException):
 class BadResponseException(InstaloaderException):
     pass
 
+class BadResponseExceptionMeta(InstaloaderException):
+    pass
+
 
 class BadCredentialsException(InstaloaderException):
     pass
